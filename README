@@ -1,0 +1,21 @@
+this is a rake task to  convert your existing bugzilla database to
+a redmine database. Bugzilla is a popular Bugtracking-System. Redmine
+is a increasingly popular bugtracking system as well. Compared with Bugzilla,
+Redmine has a couple of unique features.
+
+the task is based on the work of Arjen Roodselaar, Lindix bv
+
+== Features
+
+* Preserves the Bugzilla Bug Numbers
+* Converts most of the existing Bugzilla-Data including attachments
+  and relations between issues.
+
+
+== Usage
+
+* Backup your Databases and your existing redmine installation.
+  The task will delete all of the data of your existing redmine installation.
+* If you are working on a new installation of redmine make shure you ran
+  "rake redmine:load_default_data"
+* run the script and enter the connection settings of your bugzilla database
