@@ -14,6 +14,8 @@ the task is based on the work of Arjen Roodselaar, Lindix bv
 
 == Usage
 
+* Put the migrate_from_bugzilla.rake file into the lib/tasks directory
+  of your Redmine installation
 * Backup your Databases and your existing redmine installation.
   The task will delete all of the data of your existing redmine installation.
 * If you are working on a new installation of redmine make shure you ran
