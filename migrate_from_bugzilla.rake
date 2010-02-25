@@ -32,7 +32,7 @@ module ActiveRecord
         attr_accessor :pk
         def set_pk
           self.id = self.pk unless self.pk.nil?
-		  self.id = self.id + 1 if self.class == User
+          self.id = self.id + 1 if self.class == User
           #puts "id = #{self.id}"
         end
       end
@@ -146,7 +146,7 @@ module ActiveRecord
             :class_name => "BugzillaProfile",
             :join_table => :user_group_map,
             :foreign_key => :group_id,
-            :association_foreign_key => :user_id
+            :association_foreign_key => :user_id.to_i + 1
         end
       
         class BugzillaProduct < ActiveRecord::Base
