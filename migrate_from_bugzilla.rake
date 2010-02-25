@@ -32,6 +32,7 @@ module ActiveRecord
         attr_accessor :pk
         def set_pk
           self.id = self.pk unless self.pk.nil?
+		  self.id = self.id + 1 if self.class == User
           #puts "id = #{self.id}"
         end
       end
@@ -406,15 +407,17 @@ module ActiveRecord
         db_params = {:adapter => 'mysql',
           :database => 'bugzilla',
           :host => 'localhost',
+          :port => '3306',
           :username => 'bugzilla',
           :password => '',
           :encoding => 'utf8'}
 
         puts
         puts "Please enter settings for your Bugzilla database"
-        [:adapter, :host, :database, :username, :password].each do |param|
+        [:adapter, :host, :port, :database, :username, :password].each do |param|
             print "#{param} [#{db_params[param]}]: "
             value = STDIN.gets.chomp!
+            value = value.to_i if param == :port
             db_params[param] = value unless value.blank?
         end
 
