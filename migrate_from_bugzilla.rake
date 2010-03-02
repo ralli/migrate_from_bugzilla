@@ -32,7 +32,6 @@ module ActiveRecord
         attr_accessor :pk
         def set_pk
           self.id = self.pk unless self.pk.nil?
-          #puts "id = #{self.id}"
         end
       end
 
@@ -203,7 +202,6 @@ module ActiveRecord
           end
         end
 
-
         class BugzillaAttachment < ActiveRecord::Base
           set_table_name :attachments
           set_primary_key :attach_id
@@ -244,7 +242,6 @@ module ActiveRecord
           constants.each do |const|
             klass = const_get(const)
             next unless klass.respond_to? 'establish_connection'
-            puts klass.name
             klass.establish_connection params
           end
         end
@@ -331,6 +328,9 @@ module ActiveRecord
         end
 
         def self.migrate_issues()
+          puts
+          print "Migrating issues"
+
           Issue.destroy_all
           BugzillaBug.find_each do |bug|
             description = bug.descriptions.first.text.to_s
@@ -356,7 +356,7 @@ module ActiveRecord
             issue.fixed_version = version
             
             issue.save!
-            
+
             bug.descriptions.each do |description|
               # the first comment is already added to the description field of the bug
               next if description === bug.descriptions.first
@@ -368,11 +368,16 @@ module ActiveRecord
               )
               journal.save!
             end
-           
+
+            print '.'
+            $stdout.flush
           end
         end
         
         def self.migrate_attachments()
+          puts 
+          print "Migrating attachments"
+
           BugzillaAttachment.find_each() do |attachment|
             next if attachment.attach_data.nil?
             a = Attachment.new :created_on => attachment.creation_ts
@@ -380,16 +385,24 @@ module ActiveRecord
             a.author = User.find(map_user(attachment.submitter_id)) || User.first
             a.container = Issue.find(attachment.bug_id)
             a.save
+
+            print '.'
+            $stdout.flush
           end
         end
 
         def self.migrate_issue_relations()
+          puts
+          print "Migrating issue relations"
           BugzillaDependency.find_by_sql("select blocked, dependson from dependencies").each do |dep|
             rel = IssueRelation.new
             rel.issue_from_id = dep.blocked
             rel.issue_to_id = dep.dependson
             rel.relation_type = "blocks"
             rel.save
+
+            print '.'
+            $stdout.flush
           end
 
           BugzillaDuplicate.find_by_sql("select dupe_of, dupe from duplicates").each do |dup|
@@ -398,6 +411,9 @@ module ActiveRecord
             rel.issue_to_id = dup.dupe
             rel.relation_type = "duplicates"
             rel.save
+
+            print '.'
+            $stdout.flush
           end
         end
 
