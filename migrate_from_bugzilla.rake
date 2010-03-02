@@ -249,6 +249,10 @@ module ActiveRecord
           end
         end
 
+        def self.map_user(userid)
+           return userid + 1
+        end
+
         def self.migrate_users
           # Profiles
           puts
@@ -257,7 +261,7 @@ module ActiveRecord
           User.delete_all "login <> 'admin'"
           BugzillaProfile.find_each do |profile|
             user = User.new
-            user.pk = profile.id
+            user.pk = map_user(profile.userid)
             user.login = profile.login
             user.password = "bugzilla"
             user.firstname = profile.firstname
@@ -265,7 +269,7 @@ module ActiveRecord
             user.mail = profile.email            
             user.mail.strip!
             user.status = User::STATUS_LOCKED if !profile.disabledtext.empty?
-            user.admin = true if profile.groups.include?(BugzillaGroup.find_by_name("admin"))            
+            user.admin = true if profile.groups.include?(BugzillaGroup.find_by_name("admin"))
             puts "FAILURE #{user.inspect}" unless user.save
             print '.'
             $stdout.flush
@@ -305,7 +309,7 @@ module ActiveRecord
               category = IssueCategory.new(:name => component.name[0,30])
               category.pk = component.id
               category.project = project
-              category.assigned_to = User.find(component.initialowner)
+              category.assigned_to = User.find(map_user(component.initialowner))
               category.save
             end
 
@@ -334,7 +338,7 @@ module ActiveRecord
               :project_id => bug.product_id,
               :subject => bug.short_desc,
               :description => description || bug.short_desc,
-              :author_id => bug.reporter,
+              :author_id => map_user(bug.reporter),
               :priority => PRIORITY_MAPPING[bug.priority] || DEFAULT_PRIORITY,
               :status => STATUS_MAPPING[bug.bug_status] || DEFAULT_STATUS,
               :start_date => bug.creation_ts,
@@ -347,7 +351,7 @@ module ActiveRecord
             issue.category_id = bug.component_id
             
             issue.category_id = bug.component_id unless bug.component_id.blank?
-            issue.assigned_to_id = bug.assigned_to unless bug.assigned_to.blank?
+            issue.assigned_to_id = map_user(bug.assigned_to) unless bug.assigned_to.blank?
             version = Version.first(:conditions => {:project_id => bug.product_id, :name => bug.version })
             issue.fixed_version = version
             
@@ -373,7 +377,7 @@ module ActiveRecord
             next if attachment.attach_data.nil?
             a = Attachment.new :created_on => attachment.creation_ts
             a.file = attachment
-            a.author = User.find(attachment.submitter_id) || User.first
+            a.author = User.find(map_user(attachment.submitter_id)) || User.first
             a.container = Issue.find(attachment.bug_id)
             a.save
           end
