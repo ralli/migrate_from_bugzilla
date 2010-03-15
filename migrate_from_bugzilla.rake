@@ -252,7 +252,7 @@ module ActiveRecord
 
         def self.migrate_users
           puts
-          print "Migrating profiles"
+          print "Migrating profiles\n"
           $stdout.flush
           
           # bugzilla userid => redmine user pk.  Use email address
@@ -262,13 +262,17 @@ module ActiveRecord
           
           @user_map = {}
           BugzillaProfile.find_each do |profile|
-            existing_redmine_user = User.find_by_mail(profile.mail)
+            profile_email = profile.email
+            profile_email.strip!
+            existing_redmine_user = User.find_by_mail(profile_email)
             if existing_redmine_user
-              @user_map[profile.userid] = existing_redmine_user.pk
+	      # puts "Existing Redmine User: \n #{existing_redmine_user.inspect}"
+              puts "found existing user #{existing_redmine_user.mail} with bugzilla id = #{profile.userid}.  creating map entry #{profile.userid} => #{existing_redmine_user.id}"
+              @user_map[profile.userid] = existing_redmine_user.id
             else
               # create the new user with its own fresh pk
               # and make an entry in the mapping
-              new_redmine_user = User.new
+              user = User.new
               user.login = profile.login
               user.password = "bugzilla"
               user.firstname = profile.firstname
@@ -278,7 +282,10 @@ module ActiveRecord
               user.status = User::STATUS_LOCKED if !profile.disabledtext.empty?
               user.admin = true if profile.groups.include?(BugzillaGroup.find_by_name("admin"))
               puts "FAILURE #{user.inspect}" unless user.save
-              @user_map[prfile.userid] = user.pk
+	      #user.reload
+              puts "mapping bugzilla user #{profile.userid} to redmine user pk #{user.id}"
+              @user_map[profile.userid] = user.id
+            end
           end
           print '.'
           $stdout.flush
@@ -302,7 +309,7 @@ module ActiveRecord
             project.identifier = product.name.downcase.gsub(/[^a-zA-Z0-9]+/, '-')[0..19]
             project.save!
             
-            @project_map[product.id] = project.pk
+            @project_map[product.id] = project.id
             
             print '.'
             $stdout.flush
@@ -323,6 +330,8 @@ module ActiveRecord
               category = IssueCategory.new(:name => component.name[0,30])
               category.pk = component.id
               category.project = project
+		#puts "User mapping is: #{@user_map.inspect}"
+	      puts "component owner = #{component.initialowner} mapped to user #{map_user(component.initialowner)}"
               category.assigned_to = User.find(map_user(component.initialowner))
               category.save
             end
@@ -351,8 +360,10 @@ module ActiveRecord
           # Issue.destroy_all
           @issue_map = {}
           
-          BugzillaBug.find_each do |bug|
+          BugzillaBug.find(:all, :order => "bug_id ASC").each  do |bug|
+            #puts "Processing bugzilla bug #{bug.bug_id}"
             description = bug.descriptions.first.text.to_s
+
             issue = Issue.new(
               :project_id => @project_map[bug.product_id],
               :subject => bug.short_desc,
@@ -364,11 +375,8 @@ module ActiveRecord
               :created_on => bug.creation_ts,
               :updated_on => bug.delta_ts
             )
-
+            
             issue.tracker = TRACKER_BUG
-            # issue.pk = bug.id
-            # This relies on manual set up of the custom field in redmine.
-            issue.original_bug_id = bug.id
             issue.category_id = bug.component_id
             
             issue.category_id = bug.component_id unless bug.component_id.blank?
@@ -377,7 +385,8 @@ module ActiveRecord
             issue.fixed_version = version
             
             issue.save!
-            @issue_map[bug.id] = issue.pk
+            #puts "Redmine issue number is #{issue.id}"
+            @issue_map[bug.bug_id] = issue.id
             
             
             bug.descriptions.each do |description|
@@ -385,12 +394,20 @@ module ActiveRecord
               next if description === bug.descriptions.first
               journal = Journal.new(
                 :journalized => issue,
-                :user_id => description.who,
+                :user_id => map_user(description.who),
                 :notes => description.text,
                 :created_on => description.bug_when
               )
               journal.save!
             end
+
+            # Add a journal entry to capture the original bugzilla bug ID
+            journal = Journal.new(
+              :journalized => issue,
+              :user_id => 1,
+              :notes => "Original Bugzilla ID was #{bug.id}"
+            )
+              journal.save!
             print '.'
             $stdout.flush
           end
@@ -443,11 +460,11 @@ module ActiveRecord
       
         # Default Bugzilla database settings
         db_params = {:adapter => 'mysql',
-          :database => 'bugzilla',
+          :database => 'bugs',
           :host => 'localhost',
           :port => '3306',
-          :username => 'bugzilla',
-          :password => '',
+          :username => 'redmine',
+          :password => 'redmine',
           :encoding => 'utf8'}
 
         puts
