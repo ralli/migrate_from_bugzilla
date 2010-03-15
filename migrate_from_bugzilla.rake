@@ -245,47 +245,65 @@ module ActiveRecord
             klass.establish_connection params
           end
         end
+        
         def self.map_user(userid)
-           return userid + 1
+           return @user_map[userid]
         end
 
         def self.migrate_users
-          # Profiles
           puts
           print "Migrating profiles"
           $stdout.flush
-          User.delete_all "login <> 'admin'"
+          
+          # bugzilla userid => redmine user pk.  Use email address
+          # as the matching mechanism.  If profile exists in redmine,
+          # leave it untouched, otherwise create a new user and copy
+          # the profile data from bugzilla
+          
+          @user_map = {}
           BugzillaProfile.find_each do |profile|
-            user = User.new
-            user.pk = map_user(profile.userid)
-            user.login = profile.login
-            user.password = "bugzilla"
-            user.firstname = profile.firstname
-            user.lastname = profile.lastname
-            user.mail = profile.email            
-            user.mail.strip!
-            user.status = User::STATUS_LOCKED if !profile.disabledtext.empty?
-            user.admin = true if profile.groups.include?(BugzillaGroup.find_by_name("admin"))
-            puts "FAILURE #{user.inspect}" unless user.save
-            print '.'
-            $stdout.flush
+            existing_redmine_user = User.find_by_mail(profile.mail)
+            if existing_redmine_user
+              @user_map[profile.userid] = existing_redmine_user.pk
+            else
+              # create the new user with its own fresh pk
+              # and make an entry in the mapping
+              new_redmine_user = User.new
+              user.login = profile.login
+              user.password = "bugzilla"
+              user.firstname = profile.firstname
+              user.lastname = profile.lastname
+              user.mail = profile.email
+              user.mail.strip!
+              user.status = User::STATUS_LOCKED if !profile.disabledtext.empty?
+              user.admin = true if profile.groups.include?(BugzillaGroup.find_by_name("admin"))
+              puts "FAILURE #{user.inspect}" unless user.save
+              @user_map[prfile.userid] = user.pk
           end
+          print '.'
+          $stdout.flush
         end
-
+        
         def self.migrate_products
           puts
           print "Migrating products"
           $stdout.flush
-          Project.destroy_all
-       
+          
+          # bugzilla product id => redmine product pk
+          # We will assume this a copy not a merge
+
+          @project_map = {}
+          
           BugzillaProduct.find_each do |product|
             project = Project.new
-            project.pk = product.id
+            # project.pk = product.id
             project.name = product.name
             project.description = product.description
             project.identifier = product.name.downcase.gsub(/[^a-zA-Z0-9]+/, '-')[0..19]
             project.save!
-
+            
+            @project_map[product.id] = project.pk
+            
             print '.'
             $stdout.flush
 
@@ -329,11 +347,14 @@ module ActiveRecord
         def self.migrate_issues()
           puts
           print "Migrating issues"
-          Issue.destroy_all
+          
+          # Issue.destroy_all
+          @issue_map = {}
+          
           BugzillaBug.find_each do |bug|
             description = bug.descriptions.first.text.to_s
             issue = Issue.new(
-              :project_id => bug.product_id,
+              :project_id => @project_map[bug.product_id],
               :subject => bug.short_desc,
               :description => description || bug.short_desc,
               :author_id => map_user(bug.reporter),
@@ -345,15 +366,20 @@ module ActiveRecord
             )
 
             issue.tracker = TRACKER_BUG
-            issue.pk = bug.id
+            # issue.pk = bug.id
+            # This relies on manual set up of the custom field in redmine.
+            issue.original_bug_id = bug.id
             issue.category_id = bug.component_id
             
             issue.category_id = bug.component_id unless bug.component_id.blank?
             issue.assigned_to_id = map_user(bug.assigned_to) unless bug.assigned_to.blank?
-            version = Version.first(:conditions => {:project_id => bug.product_id, :name => bug.version })
+            version = Version.first(:conditions => {:project_id => @project_map[bug.product_id], :name => bug.version })
             issue.fixed_version = version
             
             issue.save!
+            @issue_map[bug.id] = issue.pk
+            
+            
             bug.descriptions.each do |description|
               # the first comment is already added to the description field of the bug
               next if description === bug.descriptions.first
@@ -378,7 +404,7 @@ module ActiveRecord
             a = Attachment.new :created_on => attachment.creation_ts
             a.file = attachment
             a.author = User.find(map_user(attachment.submitter_id)) || User.first
-            a.container = Issue.find(attachment.bug_id)
+            a.container = Issue.find(@issue_map[attachment.bug_id])
             a.save
 
             print '.'
@@ -391,8 +417,8 @@ module ActiveRecord
           print "Migrating issue relations"
           BugzillaDependency.find_by_sql("select blocked, dependson from dependencies").each do |dep|
             rel = IssueRelation.new
-            rel.issue_from_id = dep.blocked
-            rel.issue_to_id = dep.dependson
+            rel.issue_from_id = @issue_map[dep.blocked]
+            rel.issue_to_id = @issue_map[dep.dependson]
             rel.relation_type = "blocks"
             rel.save
             print '.'
@@ -401,8 +427,8 @@ module ActiveRecord
 
           BugzillaDuplicate.find_by_sql("select dupe_of, dupe from duplicates").each do |dup|
             rel = IssueRelation.new
-            rel.issue_from_id = dup.dupe_of
-            rel.issue_to_id = dup.dupe
+            rel.issue_from_id = @issue_map[dup.dupe_of]
+            rel.issue_to_id = @issue_map[dup.dupe]
             rel.relation_type = "duplicates"
             rel.save
             print '.'
@@ -411,7 +437,7 @@ module ActiveRecord
         end
 
         puts
-        puts "WARNING: Your Redmine data will be deleted during this process."
+        puts "WARNING: Your Redmine data could be corrupted during this process."
         print "Are you sure you want to continue ? [y/N] "
         break unless STDIN.gets.match(/^y$/i)
       
