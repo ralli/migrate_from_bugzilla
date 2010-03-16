@@ -326,14 +326,18 @@ module ActiveRecord
             enabled_module.save!
 
             # Components
+            @category_map = {}
             product.components.each do |component|
+              # assume all components become a new category
+              
               category = IssueCategory.new(:name => component.name[0,30])
-              category.pk = component.id
+              #category.pk = component.id
               category.project = project
-		#puts "User mapping is: #{@user_map.inspect}"
-	      puts "component owner = #{component.initialowner} mapped to user #{map_user(component.initialowner)}"
+		# puts "User mapping is: #{@user_map.inspect}"
+	        # puts "component owner = #{component.initialowner} mapped to user #{map_user(component.initialowner)}"
               category.assigned_to = User.find(map_user(component.initialowner))
               category.save
+              @category_map[component.id] = category.id
             end
 
             Tracker.find_each do |tracker|
@@ -377,9 +381,9 @@ module ActiveRecord
             )
             
             issue.tracker = TRACKER_BUG
-            issue.category_id = bug.component_id
+            # issue.category_id = @category_map[bug.component_id]
             
-            issue.category_id = bug.component_id unless bug.component_id.blank?
+            issue.category_id =  @category_map[bug.component_id] unless bug.component_id.blank?
             issue.assigned_to_id = map_user(bug.assigned_to) unless bug.assigned_to.blank?
             version = Version.first(:conditions => {:project_id => @project_map[bug.product_id], :name => bug.version })
             issue.fixed_version = version
@@ -463,8 +467,8 @@ module ActiveRecord
           :database => 'bugs',
           :host => 'localhost',
           :port => '3306',
-          :username => 'redmine',
-          :password => 'redmine',
+          :username => 'redmine_app',
+          :password => '',
           :encoding => 'utf8'}
 
         puts
