@@ -102,6 +102,8 @@ module ActiveRecord
           4 => IssueRelation::TYPE_DUPLICATES  # has duplicate
         }
 
+        BUGZILLA_ID_FIELDNAME = "Bugzilla-Id"
+
         class BugzillaProfile < ActiveRecord::Base
           set_table_name :profiles
           set_primary_key :userid
@@ -363,6 +365,8 @@ module ActiveRecord
           
           # Issue.destroy_all
           @issue_map = {}
+
+          custom_field = IssueCustomField.find_by_name(BUGZILLA_ID_FIELDNAME)
           
           BugzillaBug.find(:all, :order => "bug_id ASC").each  do |bug|
             #puts "Processing bugzilla bug #{bug.bug_id}"
@@ -411,7 +415,12 @@ module ActiveRecord
               :user_id => 1,
               :notes => "Original Bugzilla ID was #{bug.id}"
             )
-              journal.save!
+            journal.save!
+
+            # Additionally save the original bugzilla bug ID as custom field value.
+            issue.custom_field_values = { custom_field.id => "#{bug.id}" }
+            issue.save_custom_field_values
+
             print '.'
             $stdout.flush
           end
@@ -457,6 +466,29 @@ module ActiveRecord
           end
         end
 
+        def self.create_custom_bug_id_field
+           custom = IssueCustomField.find_by_name(BUGZILLA_ID_FIELDNAME)
+           return if custom
+           custom = IssueCustomField.new({:regexp => "",
+                                          :position => 1,
+                                          :name => BUGZILLA_ID_FIELDNAME,
+                                          :is_required => false,
+                                          :min_length => 0,
+                                          :default_value => "",
+                                          :searchable =>true,
+                                          :is_for_all => true,
+                                          :max_length => 0, 
+                                          :is_filter => true, 
+                                          :editable => true, 
+                                          :field_format => "string" })
+           custom.save!
+
+           Tracker.all.each do |t|
+             t.custom_fields << custom
+             t.save!
+           end
+        end
+
         puts
         puts "WARNING: Your Redmine data could be corrupted during this process."
         print "Are you sure you want to continue ? [y/N] "
@@ -487,6 +519,7 @@ module ActiveRecord
         Setting.notified_events = []
         
         BugzillaMigrate.establish_connection db_params
+        BugzillaMigrate.create_custom_bug_id_field
         BugzillaMigrate.migrate_users
         BugzillaMigrate.migrate_products
         BugzillaMigrate.migrate_issues
