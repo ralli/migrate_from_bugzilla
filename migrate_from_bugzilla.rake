@@ -93,7 +93,7 @@ module ActiveRecord
           7 => 'list',   # Multiselection list
           8 => 'date',   # Date
         }
-                                   
+y                                   
         RELATION_TYPE_MAPPING = {
           0 => IssueRelation::TYPE_DUPLICATES, # duplicate of
           1 => IssueRelation::TYPE_RELATES,    # related to
@@ -129,13 +129,13 @@ module ActiveRecord
           def lastname
             s = read_attribute(:realname)
             return 'unknown' if(s.blank?)
-            return s.split(/[ ,]+/).first
+            return s.split(/[ ,]+/)[-1]
           end
 
           def firstname
             s = read_attribute(:realname)
             return 'unknown' if(s.blank?)
-            return s.split(/[ ,]+/)[-1]
+            return s.split(/[ ,]+/).first
           end
         end
       
