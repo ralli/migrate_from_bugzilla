@@ -93,7 +93,7 @@ module ActiveRecord
           7 => 'list',   # Multiselection list
           8 => 'date',   # Date
         }
-y                                   
+                                   
         RELATION_TYPE_MAPPING = {
           0 => IssueRelation::TYPE_DUPLICATES, # duplicate of
           1 => IssueRelation::TYPE_RELATES,    # related to
