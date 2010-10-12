@@ -263,12 +263,12 @@ module ActiveRecord
           # the profile data from bugzilla
           
           @user_map = {}
-          BugzillaProfile.find_each do |profile|
+          BugzillaProfile.all(:order => :userid).each do |profile|
             profile_email = profile.email
             profile_email.strip!
             existing_redmine_user = User.find_by_mail(profile_email)
             if existing_redmine_user
-	      # puts "Existing Redmine User: \n #{existing_redmine_user.inspect}"
+	      #puts "Existing Redmine User: \n #{existing_redmine_user.inspect}"
               puts "found existing user #{existing_redmine_user.mail} with bugzilla id = #{profile.userid}.  creating map entry #{profile.userid} => #{existing_redmine_user.id}"
               @user_map[profile.userid] = existing_redmine_user.id
             else
@@ -284,7 +284,6 @@ module ActiveRecord
               user.status = User::STATUS_LOCKED if !profile.disabledtext.empty?
               user.admin = true if profile.groups.include?(BugzillaGroup.find_by_name("admin"))
               puts "FAILURE #{user.inspect}" unless user.save
-	      #user.reload
               puts "mapping bugzilla user #{profile.userid} to redmine user pk #{user.id}"
               @user_map[profile.userid] = user.id
             end
@@ -298,9 +297,6 @@ module ActiveRecord
           print "Migrating products"
           $stdout.flush
           
-          # bugzilla product id => redmine product pk
-          # We will assume this a copy not a merge
-
           @project_map = {}
           
           BugzillaProduct.find_each do |product|
@@ -337,7 +333,8 @@ module ActiveRecord
               category.project = project
 		# puts "User mapping is: #{@user_map.inspect}"
 	        # puts "component owner = #{component.initialowner} mapped to user #{map_user(component.initialowner)}"
-              category.assigned_to = User.find(map_user(component.initialowner))
+              uid = map_user(component.initialowner)
+              category.assigned_to = User.first(:conditions => {:id => uid })
               category.save
               @category_map[component.id] = category.id
             end
@@ -376,7 +373,7 @@ module ActiveRecord
               :project_id => @project_map[bug.product_id],
               :subject => bug.short_desc,
               :description => description || bug.short_desc,
-              :author_id => map_user(bug.reporter),
+              :author_id => User.find(map_user(bug.reporter)),
               :priority => PRIORITY_MAPPING[bug.priority] || DEFAULT_PRIORITY,
               :status => STATUS_MAPPING[bug.bug_status] || DEFAULT_STATUS,
               :start_date => bug.creation_ts,
@@ -498,8 +495,8 @@ module ActiveRecord
         db_params = {:adapter => 'mysql',
           :database => 'bugs',
           :host => 'localhost',
-          :port => '3306',
-          :username => 'redmine_app',
+          :port => 3306,
+          :username => '',
           :password => '',
           :encoding => 'utf8'}
 
@@ -517,7 +514,8 @@ module ActiveRecord
 
         # Turn off email notifications
         Setting.notified_events = []
-        
+
+     
         BugzillaMigrate.establish_connection db_params
         BugzillaMigrate.create_custom_bug_id_field
         BugzillaMigrate.migrate_users
