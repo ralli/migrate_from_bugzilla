@@ -269,7 +269,6 @@ module ActiveRecord
             existing_redmine_user = User.find_by_mail(profile_email)
             if existing_redmine_user
 	      #puts "Existing Redmine User: \n #{existing_redmine_user.inspect}"
-              puts "found existing user #{existing_redmine_user.mail} with bugzilla id = #{profile.userid}.  creating map entry #{profile.userid} => #{existing_redmine_user.id}"
               @user_map[profile.userid] = existing_redmine_user.id
             else
               # create the new user with its own fresh pk
@@ -284,7 +283,6 @@ module ActiveRecord
               user.status = User::STATUS_LOCKED if !profile.disabledtext.empty?
               user.admin = true if profile.groups.include?(BugzillaGroup.find_by_name("admin"))
               puts "FAILURE #{user.inspect}" unless user.save
-              puts "mapping bugzilla user #{profile.userid} to redmine user pk #{user.id}"
               @user_map[profile.userid] = user.id
             end
           end
@@ -373,7 +371,7 @@ module ActiveRecord
               :project_id => @project_map[bug.product_id],
               :subject => bug.short_desc,
               :description => description || bug.short_desc,
-              :author_id => User.find(map_user(bug.reporter)),
+              :author_id => map_user(bug.reporter),
               :priority => PRIORITY_MAPPING[bug.priority] || DEFAULT_PRIORITY,
               :status => STATUS_MAPPING[bug.bug_status] || DEFAULT_STATUS,
               :start_date => bug.creation_ts,
