@@ -282,7 +282,13 @@ module ActiveRecord
               user.mail.strip!
               user.status = User::STATUS_LOCKED if !profile.disabledtext.empty?
               user.admin = true if profile.groups.include?(BugzillaGroup.find_by_name("admin"))
-              puts "FAILURE #{user.inspect}" unless user.save
+	      unless user.save then
+                puts "FAILURE saving user"
+                puts "user: #{user.inspect}"
+                puts "bugzilla profile: #{profile.inspect}"
+                validation_errors = user.errors.collect {|e| e.to_s }.join(", ")
+                puts "validation errors: #{validation_errors}" 
+              end
               @user_map[profile.userid] = user.id
             end
           end
