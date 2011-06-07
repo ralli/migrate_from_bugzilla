@@ -5,12 +5,12 @@
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -28,7 +28,7 @@ module ActiveRecord
   namespace :redmine do
     task :migrate_from_bugzilla => :environment do
 
-      module AssignablePk        
+      module AssignablePk
         attr_accessor :pk
         def set_pk
           self.id = self.pk unless self.pk.nil?
@@ -44,13 +44,13 @@ module ActiveRecord
 
       register_for_assigned_pk([User, Project, Issue, IssueCategory, Attachment, Version])
 
-      module BugzillaMigrate 
+      module BugzillaMigrate
         DEFAULT_STATUS = IssueStatus.default
         CLOSED_STATUS = IssueStatus.find :first, :conditions => { :is_closed => true }
         assigned_status = IssueStatus.find_by_position(2)
         resolved_status = IssueStatus.find_by_position(3)
         feedback_status = IssueStatus.find_by_position(4)
-      
+
         STATUS_MAPPING = {
           "UNCONFIRMED" => DEFAULT_STATUS,
           "NEW" => DEFAULT_STATUS,
@@ -63,7 +63,7 @@ module ActiveRecord
         # actually close resolved issues
         resolved_status.is_closed = true
         resolved_status.save
-                        
+
         priorities = IssuePriority.all(:order => 'id')
         PRIORITY_MAPPING = {
           "P1" => priorities[1], # low
@@ -73,15 +73,15 @@ module ActiveRecord
           "P5" => priorities[5]  # immediate
         }
         DEFAULT_PRIORITY = PRIORITY_MAPPING["P2"]
-    
+
         TRACKER_BUG = Tracker.find_by_position(1)
         TRACKER_FEATURE = Tracker.find_by_position(2)
-      
+
         reporter_role = Role.find_by_position(5)
         developer_role = Role.find_by_position(4)
         manager_role = Role.find_by_position(3)
         DEFAULT_ROLE = reporter_role
-      
+
         CUSTOM_FIELD_TYPE_MAPPING = {
           0 => 'string', # String
           1 => 'int',    # Numeric
@@ -93,7 +93,7 @@ module ActiveRecord
           7 => 'list',   # Multiselection list
           8 => 'date',   # Date
         }
-                                   
+
         RELATION_TYPE_MAPPING = {
           0 => IssueRelation::TYPE_DUPLICATES, # duplicate of
           1 => IssueRelation::TYPE_RELATES,    # related to
@@ -107,17 +107,17 @@ module ActiveRecord
         class BugzillaProfile < ActiveRecord::Base
           set_table_name :profiles
           set_primary_key :userid
-        
+
           has_and_belongs_to_many :groups,
             :class_name => "BugzillaGroup",
             :join_table => :user_group_map,
             :foreign_key => :user_id,
             :association_foreign_key => :group_id
-        
+
           def login
             login_name[0..29].gsub(/[^a-zA-Z0-9_\-@\.]/, '-')
           end
-        
+
           def email
             if login_name.match(/^.*@.*$/i)
               login_name
@@ -125,7 +125,7 @@ module ActiveRecord
               "#{login_name}@foo.bar"
             end
           end
-        
+
           def lastname
             s = read_attribute(:realname)
             return 'unknown' if(s.blank?)
@@ -138,37 +138,37 @@ module ActiveRecord
             return s.split(/[ ,]+/).first
           end
         end
-      
+
         class BugzillaGroup < ActiveRecord::Base
           set_table_name :groups
-        
+
           has_and_belongs_to_many :profiles,
             :class_name => "BugzillaProfile",
             :join_table => :user_group_map,
             :foreign_key => :group_id,
             :association_foreign_key => :user_id
         end
-      
+
         class BugzillaProduct < ActiveRecord::Base
           set_table_name :products
-        
+
           has_many :components, :class_name => "BugzillaComponent", :foreign_key => :product_id
           has_many :versions, :class_name => "BugzillaVersion", :foreign_key => :product_id
           has_many :bugs, :class_name => "BugzillaBug", :foreign_key => :product_id
         end
-      
+
         class BugzillaComponent < ActiveRecord::Base
           set_table_name :components
         end
-      
+
         class BugzillaVersion < ActiveRecord::Base
           set_table_name :versions
         end
-      
+
         class BugzillaBug < ActiveRecord::Base
           set_table_name :bugs
           set_primary_key :bug_id
-        
+
           belongs_to :product, :class_name => "BugzillaProduct", :foreign_key => :product_id
           has_many :descriptions, :class_name => "BugzillaDescription", :foreign_key => :bug_id
           has_many :attachments, :class_name => "BugzillaAttachment", :foreign_key => :bug_id
@@ -177,7 +177,7 @@ module ActiveRecord
         class BugzillaDependency < ActiveRecord::Base
           set_table_name :dependencies
         end
-        
+
         class BugzillaDuplicate < ActiveRecord::Base
           set_table_name :duplicates
         end
@@ -186,15 +186,15 @@ module ActiveRecord
           set_table_name :longdescs
           set_inheritance_column :bongo
           belongs_to :bug, :class_name => "BugzillaBug", :foreign_key => :bug_id
-        
+
           def eql(desc)
             self.bug_when == desc.bug_when
           end
-        
+
           def === desc
             self.eql(desc)
           end
-        
+
           def text
             if self.thetext.blank?
               return nil
@@ -239,7 +239,7 @@ module ActiveRecord
           set_table_name :attach_data
         end
 
-      
+
         def self.establish_connection(params)
           constants.each do |const|
             klass = const_get(const)
@@ -247,7 +247,7 @@ module ActiveRecord
             klass.establish_connection params
           end
         end
-        
+
         def self.map_user(userid)
            return @user_map[userid]
         end
@@ -256,12 +256,12 @@ module ActiveRecord
           puts
           print "Migrating profiles\n"
           $stdout.flush
-          
+
           # bugzilla userid => redmine user pk.  Use email address
           # as the matching mechanism.  If profile exists in redmine,
           # leave it untouched, otherwise create a new user and copy
           # the profile data from bugzilla
-          
+
           @user_map = {}
           BugzillaProfile.all(:order => :userid).each do |profile|
             profile_email = profile.email
@@ -287,7 +287,7 @@ module ActiveRecord
                 puts "user: #{user.inspect}"
                 puts "bugzilla profile: #{profile.inspect}"
                 validation_errors = user.errors.collect {|e| e.to_s }.join(", ")
-                puts "validation errors: #{validation_errors}" 
+                puts "validation errors: #{validation_errors}"
               end
               @user_map[profile.userid] = user.id
             end
@@ -295,80 +295,64 @@ module ActiveRecord
           print '.'
           $stdout.flush
         end
-        
+
         def self.migrate_products
           puts
           print "Migrating products"
           $stdout.flush
-          
+
           @project_map = {}
-          
+
           BugzillaProduct.find_each do |product|
             project = Project.new
-            # project.pk = product.id
             project.name = product.name
             project.description = product.description
-            project.identifier = product.name.downcase.gsub(/[^a-zA-Z0-9]+/, '-')[0..19]
+            project.identifier = "#{product.name.downcase.gsub(/[^a-z0-9]+/, '-')[0..10]}-#{product.id}"
             project.save!
-            
+
             @project_map[product.id] = project.id
-            
+
             print '.'
             $stdout.flush
 
             product.versions.each do |version|
               Version.create(:name => version.value, :project => project)
             end
-            
-            # Enable issue tracking
-            enabled_module = EnabledModule.new(
-              :project => project,
-              :name => 'issue_tracking'
-            )
-            enabled_module.save!
 
             # Components
             @category_map = {}
             product.components.each do |component|
               # assume all components become a new category
-              
+
               category = IssueCategory.new(:name => component.name[0,30])
               #category.pk = component.id
               category.project = project
-		# puts "User mapping is: #{@user_map.inspect}"
-	        # puts "component owner = #{component.initialowner} mapped to user #{map_user(component.initialowner)}"
               uid = map_user(component.initialowner)
               category.assigned_to = User.first(:conditions => {:id => uid })
               category.save
               @category_map[component.id] = category.id
             end
 
-            Tracker.find_each do |tracker|
-              project.trackers << tracker
-            end
-
             User.find_each do |user|
               membership = Member.new(
                 :user => user,
-                :project => project                
+                :project => project
               )
               membership.roles << DEFAULT_ROLE
               membership.save
             end
-          
           end
-
         end
 
         def self.migrate_issues()
           puts
           print "Migrating issues"
-          
+
           # Issue.destroy_all
           @issue_map = {}
 
           custom_field = IssueCustomField.find_by_name(BUGZILLA_ID_FIELDNAME)
-          
+
           BugzillaBug.find(:all, :order => "bug_id ASC").each  do |bug|
             #puts "Processing bugzilla bug #{bug.bug_id}"
             description = bug.descriptions.first.text.to_s
@@ -384,20 +368,20 @@ module ActiveRecord
               :created_on => bug.creation_ts,
               :updated_on => bug.delta_ts
             )
-            
+
             issue.tracker = TRACKER_BUG
             # issue.category_id = @category_map[bug.component_id]
-            
+
             issue.category_id =  @category_map[bug.component_id] unless bug.component_id.blank?
             issue.assigned_to_id = map_user(bug.assigned_to) unless bug.assigned_to.blank?
             version = Version.first(:conditions => {:project_id => @project_map[bug.product_id], :name => bug.version })
             issue.fixed_version = version
-            
+
             issue.save!
             #puts "Redmine issue number is #{issue.id}"
             @issue_map[bug.bug_id] = issue.id
-            
-            
+
+
             bug.descriptions.each do |description|
               # the first comment is already added to the description field of the bug
               next if description === bug.descriptions.first
@@ -426,9 +410,9 @@ module ActiveRecord
             $stdout.flush
           end
         end
-        
+
         def self.migrate_attachments()
-          puts 
+          puts
           print "Migrating attachments"
           BugzillaAttachment.find_each() do |attachment|
             next if attachment.attach_data.nil?
@@ -478,9 +462,9 @@ module ActiveRecord
                                           :default_value => "",
                                           :searchable =>true,
                                           :is_for_all => true,
-                                          :max_length => 0, 
-                                          :is_filter => true, 
-                                          :editable => true, 
+                                          :max_length => 0,
+                                          :is_filter => true,
+                                          :editable => true,
                                           :field_format => "string" })
            custom.save!
 
@@ -494,7 +478,7 @@ module ActiveRecord
         puts "WARNING: Your Redmine data could be corrupted during this process."
         print "Are you sure you want to continue ? [y/N] "
         break unless STDIN.gets.match(/^y$/i)
-      
+
         # Default Bugzilla database settings
         db_params = {:adapter => 'mysql',
           :database => 'bugs',
@@ -519,7 +503,7 @@ module ActiveRecord
         # Turn off email notifications
         Setting.notified_events = []
 
-     
+
         BugzillaMigrate.establish_connection db_params
         BugzillaMigrate.create_custom_bug_id_field
         BugzillaMigrate.migrate_users
@@ -527,7 +511,8 @@ module ActiveRecord
         BugzillaMigrate.migrate_issues
         BugzillaMigrate.migrate_attachments
         BugzillaMigrate.migrate_issue_relations
-      end   
+      end
     end
   end
 end
+
