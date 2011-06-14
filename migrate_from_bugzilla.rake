@@ -268,7 +268,6 @@ module ActiveRecord
             profile_email.strip!
             existing_redmine_user = User.find_by_mail(profile_email)
             if existing_redmine_user
-	      #puts "Existing Redmine User: \n #{existing_redmine_user.inspect}"
               @user_map[profile.userid] = existing_redmine_user.id
             else
               # create the new user with its own fresh pk
@@ -282,7 +281,7 @@ module ActiveRecord
               user.mail.strip!
               user.status = User::STATUS_LOCKED if !profile.disabledtext.empty?
               user.admin = true if profile.groups.include?(BugzillaGroup.find_by_name("admin"))
-	      unless user.save then
+      	      unless user.save then
                 puts "FAILURE saving user"
                 puts "user: #{user.inspect}"
                 puts "bugzilla profile: #{profile.inspect}"
@@ -302,6 +301,7 @@ module ActiveRecord
           $stdout.flush
 
           @project_map = {}
+          @category_map = {}
 
           BugzillaProduct.find_each do |product|
             project = Project.new
@@ -320,16 +320,15 @@ module ActiveRecord
             end
 
             # Components
-            @category_map = {}
             product.components.each do |component|
-              # assume all components become a new category
+              # assume all components get a new category
 
               category = IssueCategory.new(:name => component.name[0,30])
               #category.pk = component.id
               category.project = project
               uid = map_user(component.initialowner)
               category.assigned_to = User.first(:conditions => {:id => uid })
-              category.save
+              category.save!
               @category_map[component.id] = category.id
             end
 
@@ -339,7 +338,7 @@ module ActiveRecord
                 :project => project
               )
               membership.roles << DEFAULT_ROLE
-              membership.save
+              membership.save!
             end
           end
         end
@@ -420,7 +419,7 @@ module ActiveRecord
             a.file = attachment
             a.author = User.find(map_user(attachment.submitter_id)) || User.first
             a.container = Issue.find(@issue_map[attachment.bug_id])
-            a.save
+            a.save!
 
             print '.'
             $stdout.flush
@@ -435,7 +434,7 @@ module ActiveRecord
             rel.issue_from_id = @issue_map[dep.blocked]
             rel.issue_to_id = @issue_map[dep.dependson]
             rel.relation_type = "blocks"
-            rel.save
+            rel.save!
             print '.'
             $stdout.flush
           end
@@ -445,7 +444,7 @@ module ActiveRecord
             rel.issue_from_id = @issue_map[dup.dupe_of]
             rel.issue_to_id = @issue_map[dup.dupe]
             rel.relation_type = "duplicates"
-            rel.save
+            rel.save!
             print '.'
             $stdout.flush
           end
