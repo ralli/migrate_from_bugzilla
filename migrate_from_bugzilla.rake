@@ -328,7 +328,7 @@ module ActiveRecord
               category.project = project
               uid = map_user(component.initialowner)
               category.assigned_to = User.first(:conditions => {:id => uid })
-              category.save!
+              category.save
               @category_map[component.id] = category.id
             end
 
@@ -338,7 +338,7 @@ module ActiveRecord
                 :project => project
               )
               membership.roles << DEFAULT_ROLE
-              membership.save!
+              membership.save
             end
           end
         end
@@ -419,7 +419,7 @@ module ActiveRecord
             a.file = attachment
             a.author = User.find(map_user(attachment.submitter_id)) || User.first
             a.container = Issue.find(@issue_map[attachment.bug_id])
-            a.save!
+            a.save
 
             print '.'
             $stdout.flush
@@ -434,7 +434,7 @@ module ActiveRecord
             rel.issue_from_id = @issue_map[dep.blocked]
             rel.issue_to_id = @issue_map[dep.dependson]
             rel.relation_type = "blocks"
-            rel.save!
+            rel.save
             print '.'
             $stdout.flush
           end
@@ -444,7 +444,7 @@ module ActiveRecord
             rel.issue_from_id = @issue_map[dup.dupe_of]
             rel.issue_to_id = @issue_map[dup.dupe]
             rel.relation_type = "duplicates"
-            rel.save!
+            rel.save
             print '.'
             $stdout.flush
           end
