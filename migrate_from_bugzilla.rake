@@ -66,11 +66,11 @@ module ActiveRecord
 
         priorities = IssuePriority.all(:order => 'id')
         PRIORITY_MAPPING = {
-          "P1" => priorities[1], # low
-          "P2" => priorities[2], # normal
+          "P5" => priorities[1], # low
+          "P4" => priorities[2], # normal
           "P3" => priorities[3], # high
-          "P4" => priorities[4], # urgent
-          "P5" => priorities[5]  # immediate
+          "P2" => priorities[4], # urgent
+          "P1" => priorities[5]  # immediate
         }
         DEFAULT_PRIORITY = PRIORITY_MAPPING["P2"]
 
