@@ -161,6 +161,10 @@ module ActiveRecord
           set_table_name :components
         end
 
+        class BugzillaCC < ActiveRecord::Base
+          set_table_name :cc
+        end
+
         class BugzillaVersion < ActiveRecord::Base
           set_table_name :versions
         end
@@ -380,6 +384,12 @@ module ActiveRecord
             #puts "Redmine issue number is #{issue.id}"
             @issue_map[bug.bug_id] = issue.id
 
+            # Create watchers
+            BugzillaCC.find_all_by_bug_id(bug.bug_id).each do |cc|
+              Watcher.create(:watchable_type => 'issue',
+                             :watchable_id => issue.id,
+                             :user_id => map_user(cc.who))
+            end
 
             bug.descriptions.each do |description|
               # the first comment is already added to the description field of the bug
