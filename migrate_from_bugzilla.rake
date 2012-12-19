@@ -386,7 +386,7 @@ module ActiveRecord
 
             # Create watchers
             BugzillaCC.find_all_by_bug_id(bug.bug_id).each do |cc|
-              Watcher.create(:watchable_type => 'issue',
+              Watcher.create(:watchable_type => 'Issue',
                              :watchable_id => issue.id,
                              :user_id => map_user(cc.who))
             end
