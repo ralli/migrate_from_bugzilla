@@ -24,7 +24,6 @@ require 'active_record'
 require 'iconv'
 require 'pp'
 
-module ActiveRecord
   namespace :redmine do
     task :migrate_from_bugzilla => :environment do
 
@@ -523,5 +522,4 @@ module ActiveRecord
       end
     end
   end
-end
 
