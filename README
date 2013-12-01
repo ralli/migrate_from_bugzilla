@@ -19,5 +19,6 @@ The task is based on the work of Arjen Roodselaar, Lindix bv.
 * Backup your Databases and your existing redmine installation.
 * If you are working on a new installation of redmine make shure you ran
   "rake redmine:load_default_data".
-* Run the script and enter the connection settings of your bugzilla database.
+* Run the script using "rake redmine:migrate_from_bugzilla" and enter the connection settings of your bugzilla database.
+
 
