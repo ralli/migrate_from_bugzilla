@@ -440,8 +440,8 @@ namespace :redmine do
         print "Migrating issue relations"
         BugzillaDependency.find_by_sql("select blocked, dependson from dependencies").each do |dep|
           rel = IssueRelation.new
-          rel.issue_from_id = @issue_map[dep.blocked]
-          rel.issue_to_id = @issue_map[dep.dependson]
+          rel.issue_to_id = @issue_map[dep.blocked]
+          rel.issue_from_id = @issue_map[dep.dependson]
           rel.relation_type = "blocks"
           rel.save
           print '.'
