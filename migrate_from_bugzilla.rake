@@ -511,6 +511,9 @@ namespace :redmine do
       # Turn off email notifications
       Setting.notified_events = []
 
+      # Make sure no before and after save callbacks are called on Issues since this
+      # prevents the created_on und updated_on dates from being set properly
+      Issue.reset_callbacks :save
 
       BugzillaMigrate.establish_connection db_params
       BugzillaMigrate.create_custom_bug_id_field
