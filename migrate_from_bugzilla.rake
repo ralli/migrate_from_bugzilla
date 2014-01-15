@@ -80,6 +80,7 @@ namespace :redmine do
       developer_role = Role.find_by_position(4)
       manager_role = Role.find_by_position(3)
       DEFAULT_ROLE = reporter_role
+      MANAGER_ROLE = manager_role
 
       CUSTOM_FIELD_TYPE_MAPPING = {
         0 => 'string', # String
@@ -284,7 +285,7 @@ namespace :redmine do
             user.mail.strip!
             user.status = User::STATUS_LOCKED if !profile.disabledtext.empty?
             user.admin = true if profile.groups.include?(BugzillaGroup.find_by_name("admin"))
-    	      unless user.save then
+              unless user.save then
               puts "FAILURE saving user"
               puts "user: #{user.inspect}"
               puts "bugzilla profile: #{profile.inspect}"
@@ -293,8 +294,8 @@ namespace :redmine do
             end
             @user_map[profile.userid] = user.id
           end
+          print '.'
         end
-        print '.'
         $stdout.flush
       end
 
@@ -311,6 +312,7 @@ namespace :redmine do
           project.name = product.name
           project.description = product.description
           project.identifier = "#{product.name.downcase.gsub(/[^a-z0-9]+/, '-')[0..10]}-#{product.id}"
+          project.is_public = false
           project.save!
 
           @project_map[product.id] = project.id
@@ -334,15 +336,26 @@ namespace :redmine do
             category.save
             @category_map[component.id] = category.id
           end
+        end
+      end
 
-          User.find_each do |user|
-            membership = Member.new(
-              :user => user,
-              :project => project
-            )
-            membership.roles << DEFAULT_ROLE
-            membership.save
-          end
+      def self.migrate_products_users_relationship()
+        puts
+        print "Migrating relationship product/profile"
+        BugzillaProfile.all.each do |profile|
+            profile.groups.where('isbuggroup = 1').group('name').each do |group|
+                #puts "#{profile.login_name} ==> #{group.name}"
+                project = Project.find_by_name(group.name)
+                user = User.find(map_user(profile.id))
+                membership = Member.new(
+                   :user => user,
+                   :project => project
+                )
+                membership.roles << DEFAULT_ROLE unless user.admin
+                membership.roles << MANAGER_ROLE if user.admin
+                membership.save
+                print '.'
+            end
         end
       end
 
@@ -379,7 +392,15 @@ namespace :redmine do
           version = Version.first(:conditions => {:project_id => @project_map[bug.product_id], :name => bug.version })
           issue.fixed_version = version
 
+          issue.due_date = bug.deadline if bug.deadline && bug.deadline > bug.creation_ts
+          issue.estimated_hours = bug.estimated_time if bug.estimated_time && bug.estimated_time > 0
+
           issue.save!
+
+          #Because time log we need to set the root_id field
+          issue.root_id = issue.id
+          issue.save!
+
           #puts "Redmine issue number is #{issue.id}"
           @issue_map[bug.bug_id] = issue.id
 
@@ -390,7 +411,7 @@ namespace :redmine do
                            :user_id => map_user(cc.who))
           end
 
-          bug.descriptions.each do |description|
+          bug.descriptions.order('bug_when asc').each do |description|
             # the first comment is already added to the description field of the bug
             next if description === bug.descriptions.first
             journal = Journal.new(
@@ -416,6 +437,31 @@ namespace :redmine do
 
           print '.'
           $stdout.flush
+        end
+      end
+
+      def self.migrate_issues_time()
+        puts
+        puts "Migrating issues time"
+
+        BugzillaDescription.where('work_time > 0').order('bug_id asc').order('bug_when asc').each do |desc|
+            #puts "bug_id=#{desc.bug_id}, product_id=#{desc.bug.product_id}, who=#{desc.who}, work_time=#{desc.work_time}"
+            #puts "issue_id=#{@issue_map[desc.bug_id]}, project_id=#{@project_map[desc.bug.product_id]}, user_id=#{map_user(desc.who)}"
+            project = Project.find(@project_map[desc.bug.product_id])
+            issue = Issue.find(@issue_map[desc.bug_id])
+            user = User.find(map_user(desc.who))
+            time_entry = TimeEntry.new(
+                          :project => project,
+                          :issue => issue,
+                          :user => user,
+                          :spent_on => desc.bug_when,
+                          :hours => desc.work_time,
+                          :activity_id => 9,
+                          :created_on => desc.bug_when,
+                          :updated_on => desc.bug_when)
+            #time_entry.safe_attributes = 'project_id', 'issue_id', 'user_id', 'spent_on', 'hours', 'created_on', 'updated_on', 'activity_id'
+            time_entry.save!
+            print '.'
         end
       end
 
@@ -488,7 +534,7 @@ namespace :redmine do
       break unless STDIN.gets.match(/^y$/i)
 
       # Default Bugzilla database settings
-      db_params = {:adapter => 'mysql',
+      db_params = {:adapter => 'mysql2',
         :database => 'bugs',
         :host => 'localhost',
         :port => 3306,
@@ -519,10 +565,11 @@ namespace :redmine do
       BugzillaMigrate.create_custom_bug_id_field
       BugzillaMigrate.migrate_users
       BugzillaMigrate.migrate_products
+      BugzillaMigrate.migrate_products_users_relationship
       BugzillaMigrate.migrate_issues
+      BugzillaMigrate.migrate_issues_time
       BugzillaMigrate.migrate_attachments
       BugzillaMigrate.migrate_issue_relations
     end
   end
 end
-
