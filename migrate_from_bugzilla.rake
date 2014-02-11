@@ -372,9 +372,12 @@ namespace :redmine do
           #puts "Processing bugzilla bug #{bug.bug_id}"
           description = bug.descriptions.first.text.to_s
 
+          subject = bug.short_desc
+          subject = "No description" if subject.empty?
+
           issue = Issue.new(
             :project_id => @project_map[bug.product_id],
-            :subject => bug.short_desc,
+            :subject => subject,
             :description => description || bug.short_desc,
             :author_id => map_user(bug.reporter),
             :priority => PRIORITY_MAPPING[bug.priority] || DEFAULT_PRIORITY,
