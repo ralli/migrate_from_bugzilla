@@ -53,7 +53,7 @@ namespace :redmine do
       STATUS_MAPPING = {
         "UNCONFIRMED" => DEFAULT_STATUS,
         "NEW" => DEFAULT_STATUS,
-        "VERIFIED" => DEFAULT_STATUS,
+        "VERIFIED" => CLOSED_STATUS,
         "ASSIGNED" => assigned_status,
         "REOPENED" => assigned_status,
         "RESOLVED" => resolved_status,
@@ -372,9 +372,12 @@ namespace :redmine do
           #puts "Processing bugzilla bug #{bug.bug_id}"
           description = bug.descriptions.first.text.to_s
 
+          subject = bug.short_desc
+          subject = "No description" if subject.empty?
+
           issue = Issue.new(
             :project_id => @project_map[bug.product_id],
-            :subject => bug.short_desc,
+            :subject => subject,
             :description => description || bug.short_desc,
             :author_id => map_user(bug.reporter),
             :priority => PRIORITY_MAPPING[bug.priority] || DEFAULT_PRIORITY,
@@ -382,7 +385,7 @@ namespace :redmine do
             :start_date => bug.creation_ts,
             :created_on => bug.creation_ts,
             :updated_on => bug.delta_ts
-          )
+          ) { |t| t.id = bug.bug_id }
 
           issue.tracker = TRACKER_BUG
           # issue.category_id = @category_map[bug.component_id]
