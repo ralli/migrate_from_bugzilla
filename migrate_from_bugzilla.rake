@@ -385,7 +385,7 @@ namespace :redmine do
             :start_date => bug.creation_ts,
             :created_on => bug.creation_ts,
             :updated_on => bug.delta_ts
-          )
+          ) { |t| t.id = bug.bug_id }
 
           issue.tracker = TRACKER_BUG
           # issue.category_id = @category_map[bug.component_id]
